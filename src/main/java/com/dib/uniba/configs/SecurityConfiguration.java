@@ -18,33 +18,32 @@ import java.util.List;
 @EnableWebSecurity
 public class SecurityConfiguration {
 
-    // Dependences for managing authentication and JWT filtering
     private final AuthenticationProvider authenticationProvider;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final CustomAccessDeniedHandler customAccessDeniedHandler;
 
-    // Constructor injection of dependencies
     public SecurityConfiguration(
         JwtAuthenticationFilter jwtAuthenticationFilter,
-        AuthenticationProvider authenticationProvider
+        AuthenticationProvider authenticationProvider,
+        CustomAccessDeniedHandler customAccessDeniedHandler
     ) {
         this.authenticationProvider = authenticationProvider;
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.customAccessDeniedHandler = customAccessDeniedHandler;
     }
 
-    /**
-     * Configura la catena di filtri di sicurezza HTTP.
-     * Disabilita CSRF, configura le autorizzazioni per le richieste HTTP, 
-     * gestisce la sessione e aggiunge il filtro di autenticazione JWT.
-     */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/auth/signup").permitAll()    // Accesso libero per registrazione utenti
-                .requestMatchers("/auth/login").permitAll()     // Accesso libero per login
-                .requestMatchers("/auth/admin/signup").hasRole("ADMIN") // Solo gli ADMIN possono registrare altri admin
-                .anyRequest().authenticated()                   // Tutte le altre richieste richiedono autenticazione
+                .requestMatchers("/auth/signup").permitAll()
+                .requestMatchers("/auth/login").permitAll()
+                .requestMatchers("/auth/admin/signup").hasRole("ADMIN")
+                .anyRequest().authenticated()
+            )
+            .exceptionHandling(exception -> exception
+                .accessDeniedHandler(customAccessDeniedHandler) // Imposta il gestore per accessi negati
             )
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
@@ -55,26 +54,16 @@ public class SecurityConfiguration {
         return http.build();
     }
 
-    /**
-     * Configura  il CORS (Cross-Origin Resource Sharing) per permettere l'accesso da origini specifiche.
-     * Permette specifici metodi HTTP e headers per l'accesso.
-     */
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOrigins(List.of("http://localhost:8082", "http://localhost:8080", "http://localhost:8081"));
+        configuration.setAllowedMethods(List.of("GET", "POST"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
 
-        // Configura le origini consentite per le richieste
-        configuration.setAllowedOrigins(List.of("http://localhost:8082", "http://localhost:8080","http://localhost:8081"));
-
-        // Specifica i metodi HTTP consentiti
-        configuration.setAllowedMethods(List.of("GET","POST"));
-        // Specifica gli headers consentiti
-        configuration.setAllowedHeaders(List.of("Authorization","Content-Type"));
-
-        // Associa la configurazione CORS agli endpoint
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration); // Applica la configurazione a tutti gli endpoint
-
-        return source; // Restituisce la configurazione CORS
+        source.registerCorsConfiguration("/**", configuration);
+        
+        return source;
     }
 }
