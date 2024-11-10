@@ -7,6 +7,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
+import com.dib.uniba.entities.User;
+
 import java.security.Key;
 import java.util.Date;
 import java.util.HashMap;
@@ -55,12 +57,17 @@ public class JwtService {
     }
 
     /**
-     * Genera un token JWT con claim extra.
+     * Genera un token JWT con claim extra, inclusi i dettagli dell'utente e il ruolo.
      * @param extraClaims Claims aggiuntivi da includere nel token
      * @param userDetails Dettagli dell'utente
      * @return Il token JWT generato
      */
     public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {
+        // Assicurati che l'istanza userDetails sia della classe User e includi il ruolo
+        if (userDetails instanceof User) { 
+            String role = ((User) userDetails).getRole();
+            extraClaims.put("role", role); // Aggiungi il ruolo ai claims
+        }
         return buildToken(extraClaims, userDetails, jwtExpiration);
     }
 
@@ -138,8 +145,21 @@ public class JwtService {
         byte[] keyBytes = Decoders.BASE64.decode(secretKey);
         return Keys.hmacShaKeyFor(keyBytes);
     }
+
+    /**
+     * Estrae il ruolo dal token JWT.
+     * @param token Il token JWT
+     * @return Il ruolo dell'utente contenuto nel token
+     */
+    public String extractRole(String token) {
+        return extractClaim(token, claims -> claims.get("role", String.class));
+    }
+
+    /**
+     * Restituisce il tempo di scadenza configurato per il token JWT.
+     * @return Tempo di scadenza in millisecondi
+     */
     public long getExpirationTime() {
         return jwtExpiration;
     }
-
 }

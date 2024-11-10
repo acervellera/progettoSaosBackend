@@ -43,6 +43,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         final String jwt = authHeader.substring(7);
         final String userEmail = jwtService.extractUsername(jwt);
+        final String userRole = jwtService.extractRole(jwt); // Estrae il ruolo dal token JWT
 
         if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
@@ -56,8 +57,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authToken);
+                
+                // Verifica ruolo se necessario per particolari endpoint
+                if (request.getRequestURI().startsWith("/auth/admin") && !"ADMIN".equals(userRole)) {
+                    response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                    return; // Blocca l'accesso se l'utente non è ADMIN
+                }
             }
         }
         filterChain.doFilter(request, response);
     }
+
 }

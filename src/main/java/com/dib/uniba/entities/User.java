@@ -1,6 +1,5 @@
 package com.dib.uniba.entities;
 
-
 import jakarta.persistence.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
@@ -8,6 +7,7 @@ import lombok.Data;
 import lombok.experimental.Accessors;
 
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
@@ -20,12 +20,9 @@ import java.util.List;
 @Table(name = "users")
 public class User implements UserDetails {
 
-    /**
-	 * 
-	 */
-	private static final long serialVersionUID = 6338360474060585841L;
+    private static final long serialVersionUID = 6338360474060585841L;
 
-	@Id
+    @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     @Column(nullable = false)
     private Integer id;
@@ -53,7 +50,7 @@ public class User implements UserDetails {
     // Implementazione di UserDetails per Spring Security
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of(); // Modifica qui per includere i ruoli effettivi dell'utente
+        return List.of(new SimpleGrantedAuthority("ROLE_" + role)); // Fornisce l'autorità basata sul ruolo dell'utente
     }
 
     @Override
