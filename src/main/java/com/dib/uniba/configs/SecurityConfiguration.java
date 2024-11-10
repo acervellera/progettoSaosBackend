@@ -55,8 +55,6 @@ public class SecurityConfiguration {
         return http.build();
     }
 
-//provaaaaa
-
     /**
      * Configura  il CORS (Cross-Origin Resource Sharing) per permettere l'accesso da origini specifiche.
      * Permette specifici metodi HTTP e headers per l'accesso.
