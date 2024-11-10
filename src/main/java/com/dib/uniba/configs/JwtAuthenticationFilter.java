@@ -16,8 +16,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 import com.dib.uniba.services.JwtService;
 
-import io.jsonwebtoken.JwtException;
-
 import java.io.IOException;
 import java.util.logging.Logger;
 
