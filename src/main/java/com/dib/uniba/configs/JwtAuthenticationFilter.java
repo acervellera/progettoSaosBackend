@@ -14,7 +14,6 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-
 import com.dib.uniba.services.JwtService;
 
 import io.jsonwebtoken.JwtException;
@@ -41,9 +40,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     ) throws ServletException, IOException {
         final String authHeader = request.getHeader("Authorization");
 
-        // Log dell'header per verificare la presenza e il formato corretto
         logger.info("Authorization Header: " + authHeader);
 
+        // Controlla se l'header è nullo o non contiene "Bearer "
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
@@ -56,44 +55,43 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             userEmail = jwtService.extractUsername(jwt);
             logger.info("Email estratta dal token: " + userEmail);
-        } catch (JwtException e) {
+        } catch (IllegalArgumentException e) {
             logger.warning("Errore nella validazione del token: " + e.getMessage());
-            response.reset();
-            response.setStatus(HttpStatus.UNAUTHORIZED.value());
-            response.setContentType("application/json");
-            String errorMessage = "{\"error\": \"Token JWT non valido o scaduto. Effettua nuovamente il login.\"}";
-            response.setContentLength(errorMessage.length());
-            response.getWriter().write(errorMessage);
-            response.getWriter().flush();
-            return;
+            setUnauthorizedResponse(response, e.getMessage());
+            return; // Termina la catena del filtro se il token è invalido
         }
 
+        // Verifica che l'email non sia nulla e che non ci sia già un'auth nel contesto
         if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
 
-            // Verifica della validità del token con un controllo forzato
+            // Valida il token
             if (!jwtService.isTokenValid(jwt, userDetails)) {
                 logger.warning("Token non valido per l'utente: " + userEmail);
-                response.reset();
-                response.setStatus(HttpStatus.UNAUTHORIZED.value());
-                response.setContentType("application/json");
-                String errorMessage = "{\"error\": \"Token JWT non valido o scaduto. Effettua nuovamente il login.\"}";
-                response.setContentLength(errorMessage.length());
-                response.getWriter().write(errorMessage);
-                response.getWriter().flush();
+                setUnauthorizedResponse(response, "Token JWT non valido o scaduto. Effettua nuovamente il login.");
                 return;
             }
 
+            // Crea il token di autenticazione
             UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                     userDetails,
                     null,
                     userDetails.getAuthorities()
             );
-
             authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
             SecurityContextHolder.getContext().setAuthentication(authToken);
         }
 
         filterChain.doFilter(request, response);
     }
+
+    private void setUnauthorizedResponse(HttpServletResponse response, String message) throws IOException {
+        response.reset();
+        response.setStatus(HttpStatus.UNAUTHORIZED.value());
+        response.setContentType("application/json");
+        String errorMessage = String.format("{\"error\": \"%s\"}", message);
+        response.getWriter().write(errorMessage);
+        response.getWriter().flush();
+    }
+
 }
