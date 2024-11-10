@@ -6,6 +6,7 @@ import com.dib.uniba.entities.User;
 import com.dib.uniba.repositories.UserRepository;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -59,16 +60,21 @@ public class AuthenticationService {
      * @throws RuntimeException se l'utente non viene trovato
      */
     public User authenticate(LoginUserDto input) {
-        // Esegue l'autenticazione usando email e password
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        input.getEmail(), // Email dell'utente
-                        input.getPassword() // Password dell'utente
-                )
-        );
+        try {
+            // Esegue l'autenticazione usando email e password
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            input.getEmail(),
+                            input.getPassword()
+                    )
+            );
+        } catch (Exception e) {
+            throw new UsernameNotFoundException("Credenziali non valide o utente non trovato.");
+        }
 
         // Recupera l'utente dal database in base all'email
         return userRepository.findByEmail(input.getEmail())
-                .orElseThrow(); // Lancia un'eccezione se l'utente non esiste
+                .orElseThrow(() -> new UsernameNotFoundException("Utente non trovato."));
     }
+
 }

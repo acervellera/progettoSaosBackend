@@ -6,6 +6,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+
 import jakarta.validation.ConstraintViolationException;
 
 /**
@@ -76,6 +78,22 @@ public class CustomGlobalExceptionHandler {
         String errorMessage = "L'email è già esistente. Scegli un'altra email.";
         return new ResponseEntity<>(errorMessage, HttpStatus.CONFLICT); // 409 Conflict
     }
+    
+    
+    /**
+     * Gestisce eccezioni di tipo UsernameNotFoundException, che si verificano quando l'email
+     * fornita non è associata a nessun utente nel sistema.
+     *
+     * @param ex l'eccezione UsernameNotFoundException catturata
+     * @return ResponseEntity contenente il messaggio di errore e lo stato HTTP 404 (Not Found),
+     *         oppure HttpStatus.UNAUTHORIZED (401) se preferisci indicare un accesso non autorizzato
+     */
+    @ExceptionHandler(UsernameNotFoundException.class)
+    public ResponseEntity<String> handleUsernameNotFoundException(UsernameNotFoundException ex) {
+        String errorMessage = "email o password non valide. Riprovare.";
+        return new ResponseEntity<>(errorMessage, HttpStatus.NOT_FOUND);
+    }
+
 
     /**
      * Gestisce tutte le altre eccezioni generiche, restituendo una risposta HTTP 500.
@@ -88,4 +106,6 @@ public class CustomGlobalExceptionHandler {
         String errorMessage = "Si è verificato un errore imprevisto. Riprova più tardi.";
         return new ResponseEntity<>(errorMessage, HttpStatus.INTERNAL_SERVER_ERROR);
     }
+  
+
 }
