@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -49,6 +50,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
      * @throws ServletException se si verifica un errore durante l'elaborazione della richiesta
      * @throws IOException      se si verifica un errore di input/output
      */
+ // Aggiornamento nel filtro JwtAuthenticationFilter
     @Override
     protected void doFilterInternal(
             @NonNull HttpServletRequest request,
@@ -65,18 +67,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         final String jwt = authHeader.substring(7);
-        logger.info("JWT Token estratto: " + jwt);
-
         final String userEmail;
+        final String role;
+
         try {
-            // Estrae il nome utente dal token JWT
+            // Estrae l'email e il ruolo dal token JWT
             userEmail = jwtService.extractUsername(jwt);
+            role = jwtService.extractRole(jwt); // Assicurati che `extractRole` gestisca la decodifica del ruolo
             logger.info("Email estratta dal token: " + userEmail);
+            logger.info("Ruolo estratto dal token: " + role);
         } catch (IllegalArgumentException e) {
-            // In caso di errore nella validazione del token, imposta la risposta con codice di errore 401
-            logger.warning("Errore nella validazione del token: " + e.getMessage());
-            setUnauthorizedResponse(response, e.getMessage());
-            return; // Termina la catena del filtro se il token è invalido
+            // Imposta una risposta 401 se c'è un errore nella validazione del token
+            setUnauthorizedResponse(response, "Token JWT non valido o scaduto.");
+            return;
         }
 
         // Verifica che l'email non sia nulla e che non ci sia già un'auth nel contesto
@@ -85,17 +88,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             // Valida il token rispetto ai dettagli dell'utente
             if (!jwtService.isTokenValid(jwt, userDetails)) {
-                logger.warning("Token non valido per l'utente: " + userEmail);
-                setUnauthorizedResponse(response, "Token JWT non valido o scaduto. Effettua nuovamente il login.");
+                setUnauthorizedResponse(response, "Token JWT non valido o scaduto.");
                 return;
             }
 
-            // Crea un token di autenticazione e lo imposta nel contesto di sicurezza
+            // Imposta le autorità con il ruolo estratto dal token (aggiungendo il prefisso "ROLE_")
             UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                     userDetails,
                     null,
-                    userDetails.getAuthorities()
+                    AuthorityUtils.createAuthorityList("ROLE_" + role)
             );
+
             authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
             SecurityContextHolder.getContext().setAuthentication(authToken);
         }
@@ -103,6 +106,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         // Continua con la catena di filtri
         filterChain.doFilter(request, response);
     }
+
 
     /**
      * Metodo per impostare una risposta "Unauthorized" quando il token è invalido.
