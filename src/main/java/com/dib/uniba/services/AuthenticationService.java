@@ -1,5 +1,7 @@
 package com.dib.uniba.services;
 
+import java.util.regex.Pattern;
+
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -9,18 +11,19 @@ import org.springframework.stereotype.Service;
 import com.dib.uniba.dtos.LoginUserDto;
 import com.dib.uniba.dtos.RegisterUserDto;
 import com.dib.uniba.entities.User;
+import com.dib.uniba.exception.InvalidArgumentCustomException;
+import com.dib.uniba.exception.InvalidTokenException;
 import com.dib.uniba.repositories.UserRepository;
 import com.dib.uniba.utils.RoleEncryptionUtil;
 
-@Service // Annota questa classe come un servizio gestito da Spring
+@Service
 public class AuthenticationService {
     
-    private final UserRepository userRepository; // Repository per la gestione degli utenti nel database
-    private final PasswordEncoder passwordEncoder; // Encoder delle password per sicurezza
-    private final AuthenticationManager authenticationManager; // Gestore per l'autenticazione
-    private final RoleEncryptionUtil roleEncryptionUtil; // Utilità per la crittografia del ruolo
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final AuthenticationManager authenticationManager;
+    private final RoleEncryptionUtil roleEncryptionUtil;
 
-    // Costruttore per l'iniezione delle dipendenze
     public AuthenticationService(
         UserRepository userRepository,
         AuthenticationManager authenticationManager,
@@ -39,12 +42,30 @@ public class AuthenticationService {
      * Questo metodo riceve un oggetto RegisterUserDto che contiene le informazioni dell'utente.
      * Crea un nuovo utente con il nome completo, email e password codificata,
      * quindi lo salva nel repository.
+     * <p>
+     * Nota: La password deve essere lunga almeno 8 caratteri.
      *
      * @param input Dati dell'utente da registrare
      * @param role Ruolo dell'utente (USER o ADMIN)
      * @return L'utente appena creato e salvato nel database
+     * @throws InvalidArgumentCustomException se la password è inferiore a 8 caratteri
      */
     public User signup(RegisterUserDto input, String role) {
+        // Verifica la lunghezza della password
+        if (input.getPassword().length() < 8) {
+            throw new InvalidArgumentCustomException("La password deve essere lunga almeno 8 caratteri.");
+        }
+
+        // Verifica il formato dell'email
+        if (!isValidEmail(input.getEmail())) {
+            throw new InvalidArgumentCustomException("Formato email non valido.");
+        }
+
+        // Verifica se l'email è già presente nel database
+        if (userRepository.findByEmail(input.getEmail()).isPresent()) {
+            throw new InvalidArgumentCustomException("Email già esistente. Scegli un'altra email.");
+        }
+
         String encryptedRole;
         try {
             encryptedRole = roleEncryptionUtil.encryptRole(role); // Cripta il ruolo prima di salvarlo
@@ -53,12 +74,19 @@ public class AuthenticationService {
         }
 
         User user = new User()
-                .setFullName(input.getFullName()) // Imposta il nome completo dell'utente
-                .setEmail(input.getEmail()) // Imposta l'email dell'utente
-                .setPassword(passwordEncoder.encode(input.getPassword())) // Codifica e imposta la password
-                .setRole(encryptedRole); // Imposta il ruolo crittografato
+                .setFullName(input.getFullName())
+                .setEmail(input.getEmail())
+                .setPassword(passwordEncoder.encode(input.getPassword()))
+                .setRole(encryptedRole);
 
-        return userRepository.save(user); // Salva l'utente nel database
+        return userRepository.save(user);
+    }
+
+    // Metodo di utilità per la verifica del formato dell'email
+    private boolean isValidEmail(String email) {
+        String emailRegex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$";
+        Pattern pattern = Pattern.compile(emailRegex);
+        return pattern.matcher(email).matches();
     }
 
     /**
@@ -69,7 +97,7 @@ public class AuthenticationService {
      *
      * @param input Dati dell'utente per l'autenticazione
      * @return L'utente autenticato trovato nel database
-     * @throws RuntimeException se l'utente non viene trovato
+     * @throws InvalidTokenException se il token è scaduto o non valido
      */
     public User authenticate(LoginUserDto input) {
         try {
@@ -80,7 +108,7 @@ public class AuthenticationService {
                     )
             );
         } catch (Exception e) {
-            throw new UsernameNotFoundException("Credenziali non valide o utente non trovato.");
+            throw new InvalidTokenException("Token JWT non valido o scaduto. Effettua nuovamente il login.");
         }
 
         User user = userRepository.findByEmail(input.getEmail())
