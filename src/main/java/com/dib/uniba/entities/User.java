@@ -44,8 +44,11 @@ public class User implements UserDetails {
     @Column(name = "updated_at")
     private Date updatedAt;
     
-    @Column(nullable = false)
+    @Column(nullable = false,name ="role")
     private String role;
+    
+    @Column(nullable = false,name ="twoFactorSecret")
+    private String twoFactorSecret;
 
     // Implementazione di UserDetails per Spring Security
     @Override

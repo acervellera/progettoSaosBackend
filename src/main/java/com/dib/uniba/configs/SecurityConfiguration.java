@@ -58,6 +58,7 @@ public class SecurityConfiguration {
             .csrf(csrf -> csrf.disable())
             // Configura autorizzazioni per specifici endpoint
             .authorizeHttpRequests(auth -> auth
+            	.requestMatchers("/auth/initiate-2fa").permitAll()
                 .requestMatchers("/auth/signup").permitAll()  // Permetti l'accesso a /auth/signup senza autenticazione
                 .requestMatchers("/auth/login").permitAll()   // Permetti l'accesso a /auth/login senza autenticazione
                 .requestMatchers("/auth/admin/signup").hasRole("ADMIN")  // Richiede ruolo ADMIN per /auth/admin/signup

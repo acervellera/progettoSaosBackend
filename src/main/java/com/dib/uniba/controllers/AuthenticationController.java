@@ -7,10 +7,10 @@ import com.dib.uniba.responses.LoginResponse;
 import com.dib.uniba.services.AuthenticationService;
 import com.dib.uniba.services.JwtService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.security.NoSuchAlgorithmException;
+import java.util.Map;
 
 /**
  * Controller per la gestione delle autenticazioni e delle registrazioni degli utenti.
@@ -59,7 +59,41 @@ public class AuthenticationController {
     }
 
     /**
-     * Endpoint per l'autenticazione dell'utente. Genera un token JWT per l'utente autenticato.
+     * Endpoint per l'inizializzazione della 2FA per un utente, generando un URL OTP.
+     *
+     * @param email Email dell'utente per la 2FA
+     * @return URL OTP da scansionare per abilitare la 2FA
+     * @throws NoSuchAlgorithmException in caso di errore nella generazione della chiave segreta
+     */
+    @PostMapping("/initiate-2fa")
+    public ResponseEntity<String> initiateTwoFactorAuth(@RequestBody Map<String, String> requestBody) throws NoSuchAlgorithmException {
+        String email = requestBody.get("email");
+        String otpAuthUrl = authenticationService.initiateTwoFactorAuth(email);
+        return ResponseEntity.ok(otpAuthUrl);
+    }
+
+
+    /**
+     * Endpoint per il login con autenticazione a due fattori (email, password e OTP).
+     *
+     * @param loginUserDto oggetto contenente le credenziali dell'utente per il login
+     * @param otpCode      codice OTP generato dall'app Google Authenticator
+     * @return ResponseEntity contenente il token JWT e il tempo di scadenza
+     */
+    @PostMapping("/login-2fa")
+    public ResponseEntity<LoginResponse> loginWithTwoFactor(@RequestBody LoginUserDto loginUserDto, @RequestParam String otpCode) {
+        String jwtToken = authenticationService.login(loginUserDto.getEmail(), loginUserDto.getPassword(), otpCode);
+
+        // Crea la risposta di login contenente il token e il tempo di scadenza
+        LoginResponse loginResponse = new LoginResponse()
+                .setToken(jwtToken)
+                .setExpiresIn(jwtService.getExpirationTime());
+
+        return ResponseEntity.ok(loginResponse);
+    }
+
+    /**
+     * Endpoint per l'autenticazione dell'utente senza 2FA. Genera un token JWT per l'utente autenticato.
      *
      * @param loginUserDto oggetto contenente le credenziali dell'utente per il login
      * @return ResponseEntity contenente il token JWT e il tempo di scadenza
