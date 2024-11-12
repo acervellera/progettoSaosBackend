@@ -4,6 +4,8 @@ import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
+
+import org.apache.commons.codec.binary.Base32;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -22,7 +24,12 @@ public class TwoFactorAuthService {
         KeyGenerator keyGenerator = KeyGenerator.getInstance("HmacSHA1");
         keyGenerator.init(160);
         SecretKey secretKey = keyGenerator.generateKey();
-        String plainSecret = Base64.getEncoder().encodeToString(secretKey.getEncoded());
+        
+        // Usa Base32 per la codifica
+        Base32 base32 = new Base32();
+        String plainSecret = base32.encodeToString(secretKey.getEncoded()).replace("=", ""); // Rimuovi padding "="
+
+        // Cripta la chiave segreta in formato Base32 per salvarla nel database
         return encrypt(plainSecret);
     }
 
