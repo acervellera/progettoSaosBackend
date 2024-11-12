@@ -1,5 +1,4 @@
 package com.dib.uniba.services;
-
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
@@ -10,9 +9,12 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
 import java.util.Base64;
-import com.github.bastiaanjansen.otp.TOTP;
-import com.github.bastiaanjansen.otp.TOTPBuilder;
+
+import com.bastiaanjansen.otp.HMACAlgorithm;
+import com.bastiaanjansen.otp.SecretGenerator;
+import com.bastiaanjansen.otp.TOTPGenerator;
 
 @Service
 public class TwoFactorAuthService {
@@ -21,22 +23,29 @@ public class TwoFactorAuthService {
     private String encryptionKey;
 
     public String generateSecretKey() throws NoSuchAlgorithmException {
-        KeyGenerator keyGenerator = KeyGenerator.getInstance("HmacSHA1");
-        keyGenerator.init(160);
-        SecretKey secretKey = keyGenerator.generateKey();
-        
-        // Usa Base32 per la codifica
+        byte[] secret = SecretGenerator.generate();
         Base32 base32 = new Base32();
-        String plainSecret = base32.encodeToString(secretKey.getEncoded()).replace("=", ""); // Rimuovi padding "="
-
-        // Cripta la chiave segreta in formato Base32 per salvarla nel database
+        String plainSecret = base32.encodeToString(secret).replace("=", ""); 
         return encrypt(plainSecret);
     }
 
     public boolean validateOtpCode(String encryptedSecret, String code) {
         String decryptedSecret = decrypt(encryptedSecret);
-        TOTP totp = new TOTPBuilder().withSecret(decryptedSecret.getBytes()).build();
-        return totp.verify(code);
+        
+        Base32 base32 = new Base32();
+        byte[] secretBytes = base32.decode(decryptedSecret);
+
+        // Configura e crea il TOTPGenerator usando l'algoritmo HMAC e un periodo di 30 secondi
+        TOTPGenerator totpGenerator = new TOTPGenerator.Builder(secretBytes)
+                .withHOTPGenerator(hotpBuilder -> {
+                    hotpBuilder.withPasswordLength(6);
+                    hotpBuilder.withAlgorithm(HMACAlgorithm.SHA1);
+                })
+                .withPeriod(Duration.ofSeconds(30))
+                .build();
+        
+        // Verifica il codice OTP
+        return totpGenerator.verify(code);
     }
 
     public String getOtpAuthUrl(String encryptedSecret, String email) {
@@ -68,3 +77,4 @@ public class TwoFactorAuthService {
         }
     }
 }
+

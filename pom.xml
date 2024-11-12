@@ -124,11 +124,6 @@
 		</dependency>
 		<!-- Connessione DB -->
 
-		<dependency>
-			<groupId>dib.uniba</groupId>
-			<artifactId>hello</artifactId>
-			<version>0.0.1-SNAPSHOT</version>
-		</dependency>
 	</dependencies>
 
 	<build>
