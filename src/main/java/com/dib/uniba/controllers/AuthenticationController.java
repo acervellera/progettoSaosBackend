@@ -39,9 +39,10 @@ public class AuthenticationController {
      *
      * @param registerUserDto oggetto contenente i dettagli dell'utente da registrare
      * @return ResponseEntity contenente l'utente registrato e lo stato HTTP
+     * @throws NoSuchAlgorithmException 
      */
     @PostMapping("/signup")
-    public ResponseEntity<User> registerUser(@RequestBody RegisterUserDto registerUserDto) {
+    public ResponseEntity<User> registerUser(@RequestBody RegisterUserDto registerUserDto) throws NoSuchAlgorithmException {
         User registeredUser = authenticationService.signup(registerUserDto, "USER"); // Ruolo di default "USER"
         return ResponseEntity.ok(registeredUser);
     }
@@ -51,9 +52,10 @@ public class AuthenticationController {
      *
      * @param registerUserDto oggetto contenente i dettagli dell'amministratore da registrare
      * @return ResponseEntity contenente l'amministratore registrato e lo stato HTTP
+     * @throws NoSuchAlgorithmException 
      */
     @PostMapping("/admin/signup")
-    public ResponseEntity<User> registerAdmin(@RequestBody RegisterUserDto registerUserDto) {
+    public ResponseEntity<User> registerAdmin(@RequestBody RegisterUserDto registerUserDto) throws NoSuchAlgorithmException {
         User registeredAdmin = authenticationService.signup(registerUserDto, "ADMIN"); // Ruolo specifico "ADMIN"
         return ResponseEntity.ok(registeredAdmin);
     }

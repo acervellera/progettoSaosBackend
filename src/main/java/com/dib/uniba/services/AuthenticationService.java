@@ -5,7 +5,6 @@ import java.util.regex.Pattern;
 
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -32,7 +31,6 @@ public class AuthenticationService {
     private final RoleEncryptionUtil roleEncryptionUtil;
     private final TwoFactorAuthService twoFactorAuthService;
     private final JwtService jwtService;
-    private final UserDetailsService userDetailsService;
 
     /**
      * Costruttore di AuthenticationService con iniezione delle dipendenze.
@@ -49,8 +47,7 @@ public class AuthenticationService {
         PasswordEncoder passwordEncoder,
         RoleEncryptionUtil roleEncryptionUtil,
         TwoFactorAuthService twoFactorAuthService,
-        JwtService jwtService,
-        UserDetailsService userDetailsService
+        JwtService jwtService
     ) {
         this.authenticationManager = authenticationManager;
         this.userRepository = userRepository;
@@ -58,7 +55,6 @@ public class AuthenticationService {
         this.roleEncryptionUtil = roleEncryptionUtil;
         this.twoFactorAuthService = twoFactorAuthService;
         this.jwtService = jwtService;
-        this.userDetailsService = userDetailsService;
     }
 
 
@@ -124,7 +120,7 @@ public class AuthenticationService {
      * @return L'utente appena creato e salvato nel database
      * @throws InvalidArgumentCustomException se la password è inferiore a 8 caratteri o se l'email non è valida
      */
-    public User signup(RegisterUserDto input, String role) {
+    public User signup(RegisterUserDto input, String role) throws NoSuchAlgorithmException {
         if (input.getPassword().length() < 8) {
             throw new InvalidArgumentCustomException("La password deve essere lunga almeno 8 caratteri.");
         }
@@ -146,11 +142,7 @@ public class AuthenticationService {
 
         // Genera twoFactorSecret
         String twoFactorSecret;
-        try {
-            twoFactorSecret = twoFactorAuthService.generateSecretKey();
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("Errore nella generazione del twoFactorSecret", e);
-        }
+        twoFactorSecret = twoFactorAuthService.generateSecretKey();
 
         User user = new User()
                 .setFullName(input.getFullName())

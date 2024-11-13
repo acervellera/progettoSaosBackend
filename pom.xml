@@ -74,13 +74,18 @@
 		</dependency>
 		
 		<!--  Sicurezza -->
-		<dependency>
-    <groupId>com.github.bastiaanjansen</groupId>
-    <artifactId>otp-java</artifactId>
-    <version>2.0.3</version>
-</dependency>
-
-
+			<!--  TOTP -->
+			<dependency>
+   			 	<groupId>commons-codec</groupId>
+    			<artifactId>commons-codec</artifactId>
+			</dependency>
+			<dependency>
+    			<groupId>org.jboss.aerogear</groupId>
+    			<artifactId>aerogear-otp-java</artifactId>
+    			<version>1.0.0</version>
+			</dependency>
+			<!--  TOTP -->
+			
 		<dependency>
 			<groupId>org.springframework.security</groupId>
 			<artifactId>spring-security-test</artifactId>
@@ -104,6 +109,8 @@
 		    <scope>runtime</scope>
 		</dependency>
 		<!--  Sicurezza -->
+		
+		
 		
 		 <!-- Connessione DB -->
 		 <dependency>
