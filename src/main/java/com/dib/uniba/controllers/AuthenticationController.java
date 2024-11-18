@@ -6,6 +6,8 @@ import com.dib.uniba.dtos.RegisterUserDto;
 import com.dib.uniba.responses.LoginResponse;
 import com.dib.uniba.services.AuthenticationService;
 import com.dib.uniba.services.JwtService;
+import com.dib.uniba.services.QrCodeService;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,7 +16,7 @@ import java.util.Map;
 
 /**
  * Controller per la gestione delle autenticazioni e delle registrazioni degli utenti.
- * Fornisce gli endpoint per la registrazione e il login di utenti e amministratori.
+ * Fornisce gli endpoint per la registrazione, il login e la gestione della 2FA.
  */
 @RequestMapping("/auth")
 @RestController
@@ -22,16 +24,19 @@ public class AuthenticationController {
 
     private final JwtService jwtService;
     private final AuthenticationService authenticationService;
+    private final QrCodeService qrCodeService;
 
     /**
-     * Costruttore per l'iniezione delle dipendenze JwtService e AuthenticationService.
+     * Costruttore per l'iniezione delle dipendenze JwtService, AuthenticationService e QrCodeService.
      *
      * @param jwtService            servizio per la generazione e gestione dei token JWT
      * @param authenticationService servizio per la gestione delle autenticazioni e registrazioni
+     * @param qrCodeService         servizio per la generazione dei QR Code
      */
-    public AuthenticationController(JwtService jwtService, AuthenticationService authenticationService) {
+    public AuthenticationController(JwtService jwtService, AuthenticationService authenticationService, QrCodeService qrCodeService) {
         this.jwtService = jwtService;
         this.authenticationService = authenticationService;
+        this.qrCodeService = qrCodeService;
     }
 
     /**
@@ -39,11 +44,11 @@ public class AuthenticationController {
      *
      * @param registerUserDto oggetto contenente i dettagli dell'utente da registrare
      * @return ResponseEntity contenente l'utente registrato e lo stato HTTP
-     * @throws NoSuchAlgorithmException 
+     * @throws NoSuchAlgorithmException in caso di errore nella generazione della chiave
      */
     @PostMapping("/signup")
     public ResponseEntity<User> registerUser(@RequestBody RegisterUserDto registerUserDto) throws NoSuchAlgorithmException {
-        User registeredUser = authenticationService.signup(registerUserDto, "USER"); // Ruolo di default "USER"
+        User registeredUser = authenticationService.signup(registerUserDto, "USER");
         return ResponseEntity.ok(registeredUser);
     }
 
@@ -52,28 +57,36 @@ public class AuthenticationController {
      *
      * @param registerUserDto oggetto contenente i dettagli dell'amministratore da registrare
      * @return ResponseEntity contenente l'amministratore registrato e lo stato HTTP
-     * @throws NoSuchAlgorithmException 
+     * @throws NoSuchAlgorithmException in caso di errore nella generazione della chiave
      */
     @PostMapping("/admin/signup")
     public ResponseEntity<User> registerAdmin(@RequestBody RegisterUserDto registerUserDto) throws NoSuchAlgorithmException {
-        User registeredAdmin = authenticationService.signup(registerUserDto, "ADMIN"); // Ruolo specifico "ADMIN"
+        User registeredAdmin = authenticationService.signup(registerUserDto, "ADMIN");
         return ResponseEntity.ok(registeredAdmin);
     }
 
     /**
-     * Endpoint per l'inizializzazione della 2FA per un utente, generando un URL OTP.
+     * Endpoint per l'inizializzazione della 2FA per un utente, generando un URL OTP e un QR Code.
      *
-     * @param email Email dell'utente per la 2FA
-     * @return URL OTP da scansionare per abilitare la 2FA
+     * @param requestBody Map contenente l'email dell'utente per la 2FA
+     * @return QR Code in formato PNG da scansionare per abilitare la 2FA
      * @throws NoSuchAlgorithmException in caso di errore nella generazione della chiave segreta
      */
-    @PostMapping("/initiate-2fa")
-    public ResponseEntity<String> initiateTwoFactorAuth(@RequestBody Map<String, String> requestBody) throws NoSuchAlgorithmException {
+    @PostMapping(value = "/initiate-2fa", produces = MediaType.IMAGE_PNG_VALUE)
+    public ResponseEntity<byte[]> initiateTwoFactorAuth(@RequestBody Map<String, String> requestBody) throws NoSuchAlgorithmException {
         String email = requestBody.get("email");
-        String otpAuthUrl = authenticationService.initiateTwoFactorAuth(email);
-        return ResponseEntity.ok(otpAuthUrl);
-    }
 
+        // Ottieni l'URL otpauth
+        String otpAuthUrl = authenticationService.initiateTwoFactorAuth(email);
+
+        try {
+            // Genera il QR Code dal servizio
+            byte[] qrImage = qrCodeService.generateQrCode(otpAuthUrl, 300, 300);
+            return ResponseEntity.ok(qrImage);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
+    }
 
     /**
      * Endpoint per il login con autenticazione a due fattori (email, password e OTP).
