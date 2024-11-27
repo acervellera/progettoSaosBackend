@@ -58,13 +58,16 @@ public class SecurityConfiguration {
             .csrf(csrf -> csrf.disable())
             // Configura autorizzazioni per specifici endpoint
             .authorizeHttpRequests(auth -> auth
-                 .requestMatchers("/auth/login-2fa").permitAll()     // Permetti l'accesso a /auth/login-2fa senza autenticazione
-            	.requestMatchers("/auth/initiate-2fa").permitAll()
-                .requestMatchers("/auth/signup").permitAll()  // Permetti l'accesso a /auth/signup senza autenticazione
-                .requestMatchers("/auth/login").permitAll()   // Permetti l'accesso a /auth/login senza autenticazione
-                .requestMatchers("/auth/admin/signup").hasRole("ADMIN")  // Richiede ruolo ADMIN per /auth/admin/signup
-                .anyRequest().authenticated()                 // Richiede autenticazione per tutti gli altri endpoint
-            )
+            	    .requestMatchers("/auth/login-2fa").permitAll()  // Accessibile a tutti
+            	    .requestMatchers("/auth/initiate-2fa").permitAll()  // Accessibile a tutti
+            	    .requestMatchers("/auth/request-password-reset").permitAll()  // Aggiunto per il reset password
+            	    .requestMatchers("/auth/reset-password").permitAll()  // Aggiunto per il reset password
+            	    .requestMatchers("/auth/signup").permitAll()  // Accessibile a tutti
+            	    .requestMatchers("/auth/login").permitAll()   // Accessibile a tutti
+            	    .requestMatchers("/auth/admin/signup").hasRole("ADMIN")  // Solo per ADMIN
+            	    .anyRequest().authenticated()  // Tutto il resto richiede autenticazione
+            	)
+
             // Configura la gestione delle eccezioni per accessi non autorizzati
             .exceptionHandling(exception -> exception
                 .accessDeniedHandler(customAccessDeniedHandler) // Imposta il gestore per accessi negati
