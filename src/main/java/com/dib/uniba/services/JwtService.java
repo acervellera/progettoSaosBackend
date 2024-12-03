@@ -10,13 +10,18 @@ import org.springframework.stereotype.Service;
 import com.dib.uniba.entities.User;
 
 import java.security.Key;
+import java.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
+import javax.crypto.Cipher;
+import javax.crypto.spec.SecretKeySpec;
+
 /**
- * Servizio per la gestione dei token JWT. Include metodi per generare, validare, e
+ * Servizio per la gestione dei token JWT. Include metodi per generare,
+ * validare, e
  * estrarre informazioni dai token JWT.
  */
 @Service
@@ -28,55 +33,49 @@ public class JwtService {
     @Value("${security.jwt.expiration-time}")
     private long jwtExpiration;
 
+    @Value("${security.jwt.aes-key}")
+    private String aesKey; // Chiave AES dinamica letta da application.properties
+
     /**
      * Estrae il nome utente (subject) dal token JWT.
-     * 
-     * @param token il token JWT da cui estrarre il nome utente
-     * @return il nome utente contenuto nel token
-     * @throws IllegalArgumentException in caso di errore durante l'estrazione
      */
     public String extractUsername(String token) {
         try {
             return extractClaim(token, Claims::getSubject);
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Errore durante l'estrazione del nome utente dal token JWT: " + e.getMessage());
+            throw new IllegalArgumentException(
+                    "Errore durante l'estrazione del nome utente dal token JWT: " + e.getMessage());
         }
     }
 
     /**
      * Estrae un singolo claim dal token JWT utilizzando una funzione resolver.
-     * 
-     * @param token il token JWT
-     * @param claimsResolver funzione per risolvere il claim
-     * @param <T> tipo del claim da estrarre
-     * @return il valore del claim estratto
-     * @throws IllegalArgumentException in caso di errore durante l'estrazione
      */
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
         try {
             final Claims claims = extractAllClaims(token);
             return claimsResolver.apply(claims);
         } catch (JwtException e) {
-            throw new IllegalArgumentException("Errore durante l'estrazione dei claims dal token JWT: " + e.getMessage());
+            throw new IllegalArgumentException(
+                    "Errore durante l'estrazione dei claims dal token JWT: " + e.getMessage());
         }
     }
 
     /**
      * Genera un token JWT senza claim extra.
-     * 
-     * @param userDetails dettagli dell'utente
-     * @return il token JWT generato
      */
     public String generateToken(UserDetails userDetails) {
-        return generateToken(new HashMap<>(), userDetails);
+        String token = generateToken(new HashMap<>(), userDetails); // Assegna il token generato
+        try {
+            token = encryptToken(token); // Cripta il token
+        } catch (Exception e) {
+            throw new RuntimeException("Error encrypting the token", e);
+        }
+        return token;
     }
 
     /**
      * Genera un token JWT con claim extra specificati.
-     * 
-     * @param extraClaims claims aggiuntivi da includere nel token
-     * @param userDetails dettagli dell'utente
-     * @return il token JWT generato
      */
     public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {
         if (userDetails instanceof User) {
@@ -85,15 +84,9 @@ public class JwtService {
         }
         return buildToken(extraClaims, userDetails, jwtExpiration);
     }
-    
 
     /**
      * Costruisce il token JWT utilizzando claims, nome utente e tempo di scadenza.
-     * 
-     * @param extraClaims claims extra da aggiungere al token
-     * @param userDetails dettagli dell'utente
-     * @param expiration tempo di scadenza del token
-     * @return il token JWT costruito
      */
     private String buildToken(Map<String, Object> extraClaims, UserDetails userDetails, long expiration) {
         return Jwts.builder()
@@ -107,10 +100,6 @@ public class JwtService {
 
     /**
      * Verifica se il token JWT è valido per un utente specifico.
-     * 
-     * @param token il token JWT
-     * @param userDetails dettagli dell'utente
-     * @return true se il token è valido, false altrimenti
      */
     public boolean isTokenValid(String token, UserDetails userDetails) {
         final String username = extractUsername(token);
@@ -119,41 +108,37 @@ public class JwtService {
 
     /**
      * Controlla se il token JWT è scaduto.
-     * 
-     * @param token il token JWT
-     * @return true se il token è scaduto, false altrimenti
      */
     private boolean isTokenExpired(String token) {
         try {
             return extractExpiration(token).before(new Date());
         } catch (JwtException e) {
-            throw new IllegalArgumentException("Errore durante la verifica della scadenza del token JWT: " + e.getMessage());
+            throw new IllegalArgumentException(
+                    "Errore durante la verifica della scadenza del token JWT: " + e.getMessage());
         }
     }
 
     /**
      * Estrae la data di scadenza del token JWT.
-     * 
-     * @param token il token JWT
-     * @return la data di scadenza del token
-     * @throws IllegalArgumentException in caso di errore durante l'estrazione
      */
     private Date extractExpiration(String token) {
         try {
             return extractClaim(token, Claims::getExpiration);
         } catch (JwtException e) {
-            throw new IllegalArgumentException("Errore durante l'estrazione della data di scadenza dal token JWT: " + e.getMessage());
+            throw new IllegalArgumentException(
+                    "Errore durante l'estrazione della data di scadenza dal token JWT: " + e.getMessage());
         }
     }
 
     /**
      * Estrae tutti i claims dal token JWT.
-     * 
-     * @param token il token JWT
-     * @return i claims estratti dal token
-     * @throws IllegalArgumentException se il token è invalido o scaduto
      */
     private Claims extractAllClaims(String token) {
+        try {
+            token = decryptToken(token);
+        } catch (Exception e) {
+            throw new RuntimeException("Error decrypting the token", e);
+        }
         try {
             return Jwts.parserBuilder()
                     .setSigningKey(getSignInKey())
@@ -171,9 +156,6 @@ public class JwtService {
 
     /**
      * Ottiene la chiave di firma per il token JWT.
-     * Decodifica la chiave segreta Base64 per creare la chiave.
-     * 
-     * @return la chiave di firma
      */
     private Key getSignInKey() {
         byte[] keyBytes = Decoders.BASE64.decode(secretKey);
@@ -182,25 +164,35 @@ public class JwtService {
 
     /**
      * Estrae il ruolo dal token JWT.
-     * 
-     * @param token il token JWT
-     * @return il ruolo dell'utente contenuto nel token
-     * @throws IllegalArgumentException in caso di errore durante l'estrazione
      */
     public String extractRole(String token) {
         try {
             return extractClaim(token, claims -> claims.get("role", String.class));
         } catch (JwtException e) {
-            throw new IllegalArgumentException("Errore durante l'estrazione del ruolo dal token JWT: " + e.getMessage());
+            throw new IllegalArgumentException(
+                    "Errore durante l'estrazione del ruolo dal token JWT: " + e.getMessage());
         }
     }
 
     /**
      * Restituisce il tempo di scadenza configurato per il token JWT.
-     * 
-     * @return tempo di scadenza in millisecondi
      */
     public long getExpirationTime() {
         return jwtExpiration;
     }
+
+    private String encryptToken(String jwt) throws Exception {
+        Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
+        SecretKeySpec keySpec = new SecretKeySpec(aesKey.getBytes(), "AES");
+        cipher.init(Cipher.ENCRYPT_MODE, keySpec);
+        return Base64.getEncoder().encodeToString(cipher.doFinal(jwt.getBytes()));
+    }
+
+    private String decryptToken(String encryptedJwt) throws Exception {
+        Cipher cipher = Cipher.getInstance("AES/ECB/PKCS5Padding");
+        SecretKeySpec keySpec = new SecretKeySpec(aesKey.getBytes(), "AES");
+        cipher.init(Cipher.DECRYPT_MODE, keySpec);
+        return new String(cipher.doFinal(Base64.getDecoder().decode(encryptedJwt)));
+    }
+
 }
