@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.NoSuchAlgorithmException;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -47,10 +48,16 @@ public class AuthenticationController {
      * @throws NoSuchAlgorithmException in caso di errore nella generazione della chiave
      */
     @PostMapping("/signup")
-    public ResponseEntity<User> registerUser(@RequestBody RegisterUserDto registerUserDto) throws NoSuchAlgorithmException {
+    public ResponseEntity<Map<String, String>> registerUser(@RequestBody RegisterUserDto registerUserDto) throws NoSuchAlgorithmException {
         User registeredUser = authenticationService.signup(registerUserDto, "USER");
-        return ResponseEntity.ok(registeredUser);
+
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Registrazione completata. Configura la 2FA.");
+        response.put("email", registeredUser.getEmail());
+
+        return ResponseEntity.ok(response);
     }
+
 
     /**
      * Endpoint per la registrazione di un nuovo amministratore con ruolo "ADMIN".
