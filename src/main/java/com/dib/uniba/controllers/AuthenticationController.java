@@ -1,12 +1,16 @@
 package com.dib.uniba.controllers;
 
 import com.dib.uniba.entities.User;
+import com.dib.uniba.exception.UnauthorizedAccessException;
 import com.dib.uniba.dtos.LoginUserDto;
 import com.dib.uniba.dtos.RegisterUserDto;
 import com.dib.uniba.responses.LoginResponse;
 import com.dib.uniba.services.AuthenticationService;
 import com.dib.uniba.services.JwtService;
 import com.dib.uniba.services.QrCodeService;
+import com.dib.uniba.services.TokenService;
+
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -26,6 +30,7 @@ public class AuthenticationController {
     private final JwtService jwtService;
     private final AuthenticationService authenticationService;
     private final QrCodeService qrCodeService;
+    private final TokenService tokenService;
 
     /**
      * Costruttore per l'iniezione delle dipendenze JwtService, AuthenticationService e QrCodeService.
@@ -38,6 +43,7 @@ public class AuthenticationController {
         this.jwtService = jwtService;
         this.authenticationService = authenticationService;
         this.qrCodeService = qrCodeService;
+		this.tokenService = new TokenService();
     }
 
     /**
@@ -51,12 +57,16 @@ public class AuthenticationController {
     public ResponseEntity<Map<String, String>> registerUser(@RequestBody RegisterUserDto registerUserDto) throws NoSuchAlgorithmException {
         User registeredUser = authenticationService.signup(registerUserDto, "USER");
 
+        String temporaryToken = tokenService.generateTemporaryToken(registeredUser.getEmail()); // Genera un token temporaneo
+
         Map<String, String> response = new HashMap<>();
         response.put("message", "Registrazione completata. Configura la 2FA.");
         response.put("email", registeredUser.getEmail());
+        response.put("temporaryToken", temporaryToken); // Invia il token temporaneo
 
         return ResponseEntity.ok(response);
     }
+
 
 
     /**
@@ -82,18 +92,24 @@ public class AuthenticationController {
     @PostMapping(value = "/initiate-2fa", produces = MediaType.IMAGE_PNG_VALUE)
     public ResponseEntity<byte[]> initiateTwoFactorAuth(@RequestBody Map<String, String> requestBody) throws NoSuchAlgorithmException {
         String email = requestBody.get("email");
+        String temporaryToken = requestBody.get("temporaryToken");
 
-        // Ottieni l'URL otpauth
+        // Verifica il token temporaneo
+        if (!tokenService.isTemporaryTokenValid(email, temporaryToken)) {
+            throw new UnauthorizedAccessException("Accesso non autorizzato. Devi registrarti per accedere a questa risorsa.");
+        }
+
         String otpAuthUrl = authenticationService.initiateTwoFactorAuth(email);
 
         try {
-            // Genera il QR Code dal servizio
             byte[] qrImage = qrCodeService.generateQrCode(otpAuthUrl, 300, 300);
             return ResponseEntity.ok(qrImage);
         } catch (Exception e) {
             return ResponseEntity.internalServerError().build();
         }
     }
+
+
 
     /**
      * Endpoint per il login con autenticazione a due fattori (email, password e OTP).

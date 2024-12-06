@@ -15,6 +15,12 @@ import jakarta.validation.ConstraintViolationException;
  */
 @ControllerAdvice
 public class CustomGlobalExceptionHandler {
+	
+	@ExceptionHandler(UnauthorizedAccessException.class)
+	public ResponseEntity<String> handleUnauthorizedAccessException(UnauthorizedAccessException ex) {
+	    return new ResponseEntity<>(ex.getMessage(), HttpStatus.UNAUTHORIZED);
+	}
+
 
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<String> handleAccessDeniedException(AccessDeniedException ex) {
