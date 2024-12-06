@@ -21,7 +21,7 @@ public class UserController {
         this.jwtService = jwtService;
     }
 
-    @GetMapping("/me")
+    @GetMapping("profile")
     public ResponseEntity<Map<String, Object>> getUserDetails(@RequestHeader("Authorization") String authorizationHeader) {
         try {
             // Rimuovi "Bearer " dal token
