@@ -133,7 +133,7 @@ public class JwtService {
     /**
      * Estrae tutti i claims dal token JWT.
      */
-    private Claims extractAllClaims(String token) {
+    public Claims extractAllClaims(String token) {
         try {
             token = decryptToken(token);
         } catch (Exception e) {
